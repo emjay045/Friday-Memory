@@ -1,0 +1,25 @@
+# Personal data
+data/
+backups/
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+*.json.bak
