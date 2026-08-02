@@ -1,4 +1,4 @@
-# Friday -- An AI Memory System
+# Friday - An AI Memory System
 
 A hierarchical long-term memory system with semantic search, deduplication, aging, conflict resolution, and full audit trails. Designed for AI assistant persistence.
 
