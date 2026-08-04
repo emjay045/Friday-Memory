@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Friday memory. Persistent, semantic, kind of opinionated but it works.
+# Friday memory. Made by me, 01/JUN/2026 <3
 
 import argparse
 import contextlib
