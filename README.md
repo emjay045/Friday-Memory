@@ -50,7 +50,7 @@ python memory.py restore --list
 ## What makes it different
 
 ### Atomic facts, not blobs
-One concept = one entry. A fact is a first-class object with typed fields, not a paragraph your assistant may or may not parse correctly. Plural facts (`emjay has 3 dogs`) coexist correctly with singular ones; contradictory facts are resolved, never silently stacked.
+One concept = one entry. A fact is a first-class object with typed fields, not a paragraph your assistant may or may not parse correctly. Plural facts (`user has 3 dogs`) coexist correctly with singular ones; contradictory facts are resolved, never silently stacked.
 
 ### A real lifecycle
 - **Confidence** decays 0.2%/day for temporary and evolving facts. Stale facts are deprioritized at 180 days, archived at 365.
