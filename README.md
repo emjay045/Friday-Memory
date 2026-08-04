@@ -1,6 +1,8 @@
-# Friday - An AI Memory System
+# ai-memory-cli - An AI Memory System
 
 **Atomic, file-based long-term memory for AI assistants. One fact, one entry. No database, no daemon, no cloud.**
+
+*Friday* is what I (the author) personally call it; the project name is `ai-memory-cli`. Either works.
 
 Friday Memory stores what an assistant knows as structured, single-concept facts in a plain JSON file. Every fact gets a confidence score, a stability level, an audit trail, and a lifecycle: it ages, it decays, it gets confirmed, merged, or archived. Retrieval is hybrid TF-IDF + semantic embeddings, filtered by confidence and freshness. Everything is auditable. Everything is a file you can read, backup, and own.
 
