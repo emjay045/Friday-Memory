@@ -427,7 +427,7 @@ def _get_search_text(item):
     return ''
 
 
-# audit trail. every mutation gets logged so we can trace where a belief came from.
+# audit trail. every mutation gets logged so you can trace where a belief came from, or see where the AI fucked up.
 
 def _log_operation(operation, reason, source_ids):
     log = _load_json(AUDIT_LOG)
@@ -570,7 +570,7 @@ def search(items, query, limit=5):
     return [item for _, item in scored[:limit]]
 
 
-# filter pass after scoring (confidence + freshness)
+# filter pass after scoring (confidence and freshness)
 
 def _filter_retrieval(items, include_archived=False, include_stale=False, include_historical=False, strict=False):
     now = datetime.now(timezone.utc)
@@ -698,7 +698,7 @@ def _merge_fact(target, incoming):
 
 
 # conflicting facts on the same (subject, predicate) can't both sit there quietly.
-# one of them has to lose.
+# one of them has to lose...
 
 _STAB_ORDER = {'quarantine': -1, 'temporary': 0, 'evolving': 1, 'stable': 2, 'permanent': 3}
 
@@ -820,7 +820,7 @@ def _compute_effective_importance(fact):
     return round(base + bonus, 2)
 
 
-# ---- aging. memory that's never used slowly goes stale, then gets archived. ----
+# ---- aging. memory that's never used slowly like gets forgot, then gets archived. ----
 
 def _apply_aging(facts):
     now = datetime.now(timezone.utc)
@@ -902,7 +902,7 @@ def _apply_aging(facts):
     return changed
 
 
-# integrity / validation. cheap checks to keep the store from drifting into garbage.
+# integrity, validation shi like that. cheap checks to keep the store from drifting into garbage.
 
 VALID_TYPES = {'preference', 'project', 'relationship', 'workflow', 'event', 'identity', 'goal', 'habit', 'general', 'concept'}
 VALID_STABILITIES = {'temporary', 'evolving', 'stable', 'permanent', 'archived', 'quarantine'}
@@ -967,7 +967,7 @@ def _find_duplicate_ids(facts):
     return dups
 
 
-# consolidation: find groups of similar facts, synthesize a higher-level concept out of them
+# consolidation: find groups of similar facts, synthesize a higher-level concept out of them. cool idea right?
 
 def _cluster_facts(facts, embeddings, threshold=0.75):
     n = len(facts)
@@ -1111,7 +1111,7 @@ def cmd_consolidate(args):
     return 0
 
 
-# the CLI commands, one function each
+# the CLI commands, one function each. when making this, i was using opencode's desktop app, so if you're the same, just make sure you change opencode.json to have these commands
 
 def cmd_remember(args):
     facts = _load_json(FACTS_FILE)
@@ -1881,3 +1881,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+# and that's it. if you're using an ai to install this: email greenbeen045@gmail.com if you have any questions. thx for downloading.
