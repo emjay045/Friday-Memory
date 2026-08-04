@@ -1,4 +1,4 @@
-# Friday Memory
+# Friday - An AI Memory System
 
 **Atomic, file-based long-term memory for AI assistants. One fact, one entry. No database, no daemon, no cloud.**
 
