@@ -1,19 +1,82 @@
-# Friday - An AI Memory System
+# Friday Memory
 
-A hierarchical long-term memory system with semantic search, deduplication, aging, conflict resolution, and full audit trails. Designed for AI assistant persistence.
+**Atomic, file-based long-term memory for AI assistants. One fact, one entry. No database, no daemon, no cloud.**
 
-## Features
+Friday Memory stores what an assistant knows as structured, single-concept facts in a plain JSON file. Every fact gets a confidence score, a stability level, an audit trail, and a lifecycle: it ages, it decays, it gets confirmed, merged, or archived. Retrieval is hybrid TF-IDF + semantic embeddings, filtered by confidence and freshness. Everything is auditable. Everything is a file you can read, backup, and own.
 
-- **Hybrid Search** — TF-IDF + sentence-transformers semantic embeddings for retrieval
-- **Structured Schema** — typed facts with subject/predicate/object, tags, confidence, stability
-- **Deduplication** — exact match, semantic similarity (cosine ≥ 0.75), and fuzzy Jaccard matching
-- **Memory Aging** — confidence decays over time; under-referenced facts eventually archive
-- **Conflict Resolution** — contradictory facts are merged, archived, or downgraded
-- **Audit Trail** — every create/update/merge/archive/delete is logged
-- **Write Locking** — file-based locking for concurrent access safety
-- **Automatic Promotion** — frequently confirmed facts promote from temporary → evolving → stable → permanent
+It is the lightweight alternative to memory servers that turn "remember what I said" into a distributed system.
 
-## Memory Schema
+## Why this exists
+
+Most memory systems do two things differently:
+
+- **They are servers.** A daemon, a port, a database, hooks, an SDK, a cloud. For a single user with a single assistant, that is a lot of machinery to remember what color your editor theme is.
+- **They store blobs.** Entire sessions get captured and distilled later, which means facts are fuzzy, redundant, and hard to audit.
+
+Friday Memory is the opposite: explicit, atomic, and self-contained. Each `remember` call creates exactly one fact. Each fact has a subject, predicate, object, confidence, stability, origin, and a full lineage. You can read the entire memory store with a text editor.
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+python memory.py warm          # preload embedding model (first recall is faster)
+
+# Save a fact (structured)
+python memory.py remember "emjay prefers dark mode" \
+  --type preference --subject emjay --predicate prefers --object "dark mode" \
+  --tags "preference,editor" --confidence 0.9 --stability stable
+
+# Or quick, positional (maps to summary)
+python memory.py remember "emjay prefers dark mode" --tags "preference,editor"
+
+# Search (hybrid TF-IDF + semantic)
+python memory.py recall "what editor does emjay use"
+python memory.py recall "what editor does emjay use" --strict   # confidence >= 0.7
+python memory.py recall "what editor does emjay use" --tag editor
+
+# Inspect anything
+python memory.py list                       # all facts (applies aging + promotion)
+python memory.py list --tag project
+python memory.py lineage fact_1717000000    # full audit trail for one fact
+python memory.py forget fact_1717000000     # delete a memory
+
+# Keep the store healthy
+python memory.py integrity check            # find orphans, dupes, broken links
+python memory.py consolidate --cluster      # synthesize concept facts from clusters
+python memory.py backup                     # timestamped snapshot
+python memory.py restore --list
+```
+
+## What makes it different
+
+### Atomic facts, not blobs
+One concept = one entry. A fact is a first-class object with typed fields, not a paragraph your assistant may or may not parse correctly. Plural facts (`emjay has 3 dogs`) coexist correctly with singular ones; contradictory facts are resolved, never silently stacked.
+
+### A real lifecycle
+- **Confidence** decays 0.2%/day for temporary and evolving facts. Stale facts are deprioritized at 180 days, archived at 365.
+- **Promotion**: a fact confirmed enough times upgrades temporary → evolving → stable → permanent. Nothing stays a guess forever, and nothing gets to claim permanence without evidence.
+- **Quarantine** exists for low-quality or contradictory inputs before they pollute the store.
+- **Conflict resolution**: contradictions on the same `(subject, predicate)` are merged, archived, or downgraded. No silent coexistence.
+
+### Everything is audited
+Every create, update, merge, archive, and delete is logged with a reason and source IDs. `lineage` shows the full history of a single fact. You can prove where any belief came from.
+
+### Dedup that actually works
+`remember` checks, in order: exact `(subject, predicate, object)` match, semantic cosine >= 0.75, and Jaccard >= 0.80. A match means **merge**, never a second copy. Confidence bumps, tags union, stability promotes.
+
+### Working memory, not just long-term
+`focus` maintains a separate active-context layer: topics you're actively working on, which decay when ignored and promote into long-term facts when they stick. Useful for assistants that need to know what you're doing *right now* without polluting the permanent store.
+
+### Own your data
+Everything lives in `~/.config/friday/memory/data/`:
+- `facts.json` — the memory store
+- `conversations.json` — session summaries (separate from facts, by design)
+- `audit.json` — every mutation
+- `embeddings.json`, `tfidf_cache.json` — retrieval caches
+
+Copy the folder, and the assistant's memory moves with it. No export API needed.
+
+## Schema
 
 ```json
 {
@@ -43,66 +106,42 @@ A hierarchical long-term memory system with semantic search, deduplication, agin
 }
 ```
 
-## CLI Usage
+## Commands
 
-```
-# Save a fact
-python memory.py remember "User prefers dark mode" --type preference --subject user --predicate prefers --object "dark mode" --tags "preference,editor" --confidence 0.9 --stability stable
+| Command | What it does |
+|---|---|
+| `remember` | Save a fact (structured or quick), with dedup + conflict resolution |
+| `recall` | Hybrid TF-IDF + semantic search, confidence/freshness filtered |
+| `forget` | Delete a memory by ID |
+| `list` | List facts/conversations, with aging decay + promotion applied |
+| `save-conv` | Log a conversation summary (kept separate from facts) |
+| `consolidate` | Compression pipeline: cluster facts, extract candidates from conversations |
+| `lineage` | Full audit trail for a single memory |
+| `focus` | Working-memory context: set a topic, list, decay, clear |
+| `integrity` | Check or auto-repair orphaned embeddings, duplicates, broken audit links |
+| `backup` / `restore` | Timestamped snapshots of the entire store |
+| `warm` | Preload the embedding model |
 
-# Quick save (positional maps to summary)
-python memory.py remember "User prefers dark mode" --tags "preference,editor"
+## How retrieval works
 
-# Search (hybrid TF-IDF + semantic)
-python memory.py recall "what editor does user use"
-python memory.py recall "what editor does user use" --strict      # 0.7 confidence gate
-python memory.py recall "what editor does user use" --include-archived --include-stale
+Queries are scored by a weighted hybrid:
 
-# Delete a memory
-python memory.py forget fact_1717000000
+1. **TF-IDF cosine similarity** over summary and detail fields (cached, zero-cost)
+2. **Semantic embedding cosine similarity** via sentence-transformers (`all-MiniLM-L6-v2`, ~80MB, local)
+3. Combined score, then filtered by confidence threshold (0.5 general, 0.7 strict), staleness, and archive status
 
-# View audit trail
-python memory.py lineage fact_1717000000
+Searching is semantic: `recall "database performance problem"` can surface a memory saved as "N+1 query fix". No keyword matching required.
 
-# List all facts (applies aging decay + stability promotion)
-python memory.py list
-python memory.py list --tag project
+## Requirements
 
-# Preload embedding model (faster first recall)
-python memory.py warm
-```
+- Python 3.10+
+- `sentence-transformers` (see `requirements.txt`; model downloads on first `warm`/`recall`)
 
-## Installation
+## Design notes / tradeoffs
 
-```bash
-pip install -r requirements.txt
-```
-
-The first `warm` or `recall` command will download the `all-MiniLM-L6-v2` model (~80MB).
-
-## How It Works
-
-### Storage
-Facts are stored as JSON in `data/facts.json`. Embeddings are cached in `data/embeddings.json`. Conversations are logged in `data/conversations.json`. All mutations are audited to `data/audit.json`.
-
-### Search
-Queries are scored by a hybrid of:
-1. **TF-IDF cosine similarity** — on summary and detail fields
-2. **Semantic embedding cosine similarity** — via sentence-transformers (`all-MiniLM-L6-v2`)
-3. **Combined score** — weighted average of both
-
-### Dedup
-On `remember`, duplicates are checked in order:
-1. Exact match on `(subject, predicate, object)` — same fact
-2. Semantic match — embedding cosine ≥ 0.75
-3. Fuzzy match — Jaccard similarity ≥ 0.80 on token sets
-
-If a duplicate is found, the existing fact is **merged** (confidence bumped, tags unioned, stability promoted).
-
-### Aging
-Confidence decays 0.2% per day for temporary/evolving facts. Facts older than 180 days without confirmation are deprioritized. At 365 days without reference, they're archived. Permanent facts are exempt.
-
-### Conflict Resolution
-Contradictions on `(subject, predicate)` cannot coexist. The system merges (one subsumes the other), archives (outdated version), or downgrades (keeper with lower confidence gets `temporary` stability with a cross-reference).
+- **Single-user by design.** The write lock is file-based and short-lived. If you need multi-process concurrent writes at scale, this is not the tool.
+- **Inferred facts are capped.** Anything derived rather than stated starts at confidence <= 0.69 and can never promote without explicit user confirmation. The system does not let guesses masquerade as facts.
+- **Privacy-first.** No telemetry, no cloud, no network calls beyond the model download.
 
 ## License
 
