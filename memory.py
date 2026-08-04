@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Friday memory system — persistent storage with semantic search, dedup, aging, conflict resolution, audit, and retrieval filters."""
+# Friday memory. Persistent, semantic, kind of opinionated but it works.
 
 import argparse
 import contextlib
@@ -187,9 +187,7 @@ def _delete_embedding(fact_id):
     _save_embeddings(store)
 
 
-# ---------------------------------------------------------------------------
-# Working memory (session-scoped active context)
-# ---------------------------------------------------------------------------
+# --- working memory: what's on the table right now, session-scoped ---
 
 SESSION_IDLE_MINUTES = 30
 
@@ -313,7 +311,7 @@ def _promote_working_memory(wm, facts, embeddings):
             "id": f"fact_{time.time_ns()}",
             "type": "concept",
             "category": "auto",
-            "subject": "emjay",
+            "subject": "user",
             "predicate": "related_to",
             "object": obj_str,
             "summary": f"Auto-promoted: {topic}",
@@ -429,9 +427,7 @@ def _get_search_text(item):
     return ''
 
 
-# ---------------------------------------------------------------------------
-# Audit log
-# ---------------------------------------------------------------------------
+# audit trail. every mutation gets logged so we can trace where a belief came from.
 
 def _log_operation(operation, reason, source_ids):
     log = _load_json(AUDIT_LOG)
@@ -445,9 +441,9 @@ def _log_operation(operation, reason, source_ids):
     _save_json(AUDIT_LOG, log)
 
 
-# ---------------------------------------------------------------------------
-# Search: hybrid TF-IDF + semantic embedding
-# ---------------------------------------------------------------------------
+#
+# retrieval = tfidf + embeddings, because either one alone misses stuff
+#
 
 _TFIDF_CACHE = None
 
@@ -574,9 +570,7 @@ def search(items, query, limit=5):
     return [item for _, item in scored[:limit]]
 
 
-# ---------------------------------------------------------------------------
-# Retrieval filters
-# ---------------------------------------------------------------------------
+# filter pass after scoring (confidence + freshness)
 
 def _filter_retrieval(items, include_archived=False, include_stale=False, include_historical=False, strict=False):
     now = datetime.now(timezone.utc)
@@ -616,9 +610,7 @@ def _filter_retrieval(items, include_archived=False, include_stale=False, includ
     return [item for _, item in filtered]
 
 
-# ---------------------------------------------------------------------------
-# Dedup + merge
-# ---------------------------------------------------------------------------
+# dedupe. if it's basically the same fact again, merge instead of stacking copies.
 
 DEDUP_THRESHOLD = 0.75
 
@@ -705,9 +697,8 @@ def _merge_fact(target, incoming):
         target_sal['conversation_references'] = max(target_sal.get('conversation_references', 0), in_sal.get('conversation_references', 0))
 
 
-# ---------------------------------------------------------------------------
-# Conflict resolution
-# ---------------------------------------------------------------------------
+# conflicting facts on the same (subject, predicate) can't both sit there quietly.
+# one of them has to lose.
 
 _STAB_ORDER = {'quarantine': -1, 'temporary': 0, 'evolving': 1, 'stable': 2, 'permanent': 3}
 
@@ -794,9 +785,8 @@ def _resolve_conflict(incoming, facts):
     return None, None, None
 
 
-# ---------------------------------------------------------------------------
-# Salience (dynamic importance)
-# ---------------------------------------------------------------------------
+# salience = how much a fact actually matters, separate from raw importance.
+# not every stored fact is equally worth surfacing.
 
 def _init_salience(props, importance):
     props.setdefault('salience', {
@@ -830,9 +820,7 @@ def _compute_effective_importance(fact):
     return round(base + bonus, 2)
 
 
-# ---------------------------------------------------------------------------
-# Aging
-# ---------------------------------------------------------------------------
+# ---- aging. memory that's never used slowly goes stale, then gets archived. ----
 
 def _apply_aging(facts):
     now = datetime.now(timezone.utc)
@@ -914,9 +902,7 @@ def _apply_aging(facts):
     return changed
 
 
-# ---------------------------------------------------------------------------
-# Integrity / Validation
-# ---------------------------------------------------------------------------
+# integrity / validation. cheap checks to keep the store from drifting into garbage.
 
 VALID_TYPES = {'preference', 'project', 'relationship', 'workflow', 'event', 'identity', 'goal', 'habit', 'general', 'concept'}
 VALID_STABILITIES = {'temporary', 'evolving', 'stable', 'permanent', 'archived', 'quarantine'}
@@ -981,9 +967,7 @@ def _find_duplicate_ids(facts):
     return dups
 
 
-# ---------------------------------------------------------------------------
-# Consolidation / Compression Pipeline
-# ---------------------------------------------------------------------------
+# consolidation: find groups of similar facts, synthesize a higher-level concept out of them
 
 def _cluster_facts(facts, embeddings, threshold=0.75):
     n = len(facts)
@@ -1127,9 +1111,7 @@ def cmd_consolidate(args):
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Commands
-# ---------------------------------------------------------------------------
+# the CLI commands, one function each
 
 def cmd_remember(args):
     facts = _load_json(FACTS_FILE)
@@ -1527,7 +1509,7 @@ def cmd_save_conv(args):
                 "id": f"fact_{time.time_ns()}",
                 "type": "concept",
                 "category": "auto",
-                "subject": "emjay",
+                "subject": "user",
                 "predicate": "related_to",
                 "object": term,
                 "summary": f"Extracted: {term}",
@@ -1802,9 +1784,7 @@ def cmd_restore(args):
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+# entry point
 
 def main():
     parser = argparse.ArgumentParser(description='Friday memory system')
