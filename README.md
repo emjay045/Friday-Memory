@@ -22,17 +22,17 @@ pip install -r requirements.txt
 python memory.py warm          # preload embedding model (first recall is faster)
 
 # Save a fact (structured)
-python memory.py remember "emjay prefers dark mode" \
-  --type preference --subject emjay --predicate prefers --object "dark mode" \
+python memory.py remember "Alex prefers dark mode" \
+  --type preference --subject Alex --predicate prefers --object "dark mode" \
   --tags "preference,editor" --confidence 0.9 --stability stable
 
 # Or quick, positional (maps to summary)
-python memory.py remember "emjay prefers dark mode" --tags "preference,editor"
+python memory.py remember "Alex prefers dark mode" --tags "preference,editor"
 
 # Search (hybrid TF-IDF + semantic)
-python memory.py recall "what editor does emjay use"
-python memory.py recall "what editor does emjay use" --strict   # confidence >= 0.7
-python memory.py recall "what editor does emjay use" --tag editor
+python memory.py recall "what editor does Alex use"
+python memory.py recall "what editor does Alex use" --strict   # confidence >= 0.7
+python memory.py recall "what editor does Alex use" --tag editor
 
 # Inspect anything
 python memory.py list                       # all facts (applies aging + promotion)
